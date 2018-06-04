@@ -9,9 +9,7 @@ This repository contains the materials for the short course offered at the Socie
 
     git clone https://github.com/ainaimi/SER_2018.git
 
-Alternatively, you can download a zip file containing all the documents for the short course by navigating to <https://github.com/ainaimi/SER_2018>, clicking on the green "clone or download" button, and downloading the .zip file to your computer.
-
-<img src="clone2.png" width="1000px" />
+Alternatively, you can download a zip file containing all the documents for the short course by navigating to <https://github.com/ainaimi/SER_2018>, clicking on the green "clone or download" button above, and downloading the .zip file to your computer.
 
 There are no required readings for the course. For some background reading, students may be interested in the following comprehensive papers:
 
