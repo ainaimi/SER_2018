@@ -1,0 +1,114 @@
+---
+title: "Models"
+author: Ashley I. Naimi, PhD 
+header-includes:
+   - \DeclareMathOperator{\logit}{logit}
+   - \DeclareMathOperator{\expit}{expit}
+   - \usepackage{setspace}
+   - \usepackage{booktabs}
+output: #pdf_document
+  tufte::tufte_handout: default
+  #tufte::tufte_html: default
+bibliography: ref_main_v4.bib
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(here)
+library(VIM)
+library(ggExtra)
+
+thm <- theme_classic() +
+  theme(
+    legend.position = "top",
+    legend.title=element_blank(),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.key = element_rect(fill = "transparent", colour = NA)
+  )
+theme_set(thm)
+```
+
+\newpage
+\noindent {\Large \bf Outline}
+\vskip .25cm
+\noindent \underline{Models}
+\begin{itemize}
+  \item Overview of Modeling in Epidemiology
+  \item Causal versus Statistical Models
+  \item Parametric versus Nonparametric Models
+  \item Marginal versus Conditional Models
+  \item Models versus Estimators
+  \item Counterfactual Models
+  \begin{itemize}
+    \item Marginal Structural Models
+    \item Structural Nested Models
+  \end{itemize}
+\end{itemize}
+
+\newpage
+\onehalfspacing
+
+\noindent {\Large \bf \underline{Models}}
+
+\noindent {\Large \bf Overview of Models in Epidemiology}
+
+Models are an integral part of science [@Rosenblueth1945]. Epidemiologists rely exclusively on models to understand the relation between a particular exposure and outcome of interest. These models are often of a very particular type. Indeed, the most common approach to modeling in epidemiology is statistical regression [@Freedman2009]. Logistic regression in particular has become an analytic workhorse for epidemiologists when they seek to understand the relation between an exposure and a (dichotomous) health outcome. 
+
+Typically, the use of a logistic regression model proceeds as follows:^[This is a gross oversimplification. But the complexity that is being ignored here does not address the modeling issues that will be raised in subsequent sections.] 1) a researcher poses a question about the relation between an exposure and outcome of interest; 2) a host of potential threats to the validity of an assessment of the exposure-outcome relation are identified, most notably confounding variables; 3) data are collected in which the exposure-outcome relation can be quantified after mitigating the impact of the potential confounding variables; 3) the data are analyzed using logistic regression, with the measured confounders included in the model. 
+
+The logistic model is often formulated as follows $$ \logit[P( Y = 1 \mid X, C)] = \beta_0 + \beta_1 X + \beta_2 C $$
+where $\logit[a] = \log[a/(1-a)]$. 
+
+More practically, suppose we were intersted in the relation between s
+
+```{r, message=F}
+aa <- read_csv("./nhefs.csv")
+# original sample size
+nrow(aa)
+```
+
+We'll restrict our attention to a small subset of covariates:
+```{r}
+a <- aa %>% select(seqn,qsmk,sbp,dbp,hbp,sex,age,race,income,marital,school,asthma,bronch,diabetes,birthcontrol)
+```
+
+Missing data is always important to address. We use the `aggr` function from the VIM package to create this great plot, showing how much missing data there is, and how it's distributed in teh dataset.
+
+To simplify, we'll restrict to complete cases. Note this is not something that should be done without careful consideration of missing data assumpitons.^[For complete case analyses to be valid, data must be MCAR, or missing completely at random. For details, see @Little2014.]
+```{r}
+aggr(a)
+a <- a %>% na.omit()
+# sample size remaining after restricting to complete case
+nrow(a)
+```
+Let's examine the distrbution of systolic and diastolic blood pressure.
+```{r}
+plot<-ggplot(a,aes(sbp,dbp)) + geom_point() + geom_smooth(method="loess")
+ggMarginal(plot, type = "histogram")
+```
+
+And finally, a $2\times 2$ table for the relation between smoking and high-blood pressure.
+```{r}
+a$hbp <- as.numeric(a$sbp>130|a$dbp>80)
+
+tab1<-table(a$qsmk,a$hbp)
+addmargins(tab1)
+chisq.test(tab1)
+```
+
+
+\noindent {\Large \bf Causal Models versus Statistical Models}
+
+\noindent {\Large \bf Parametric versus Nonparametric Models}
+
+\noindent {\Large \bf Marginal versus Conditional Models}
+
+\noindent {\Large \bf Models versus Estimators}
+
+\noindent {\Large \bf Counterfactual Models}
+
+
+\newpage
+
+# References
