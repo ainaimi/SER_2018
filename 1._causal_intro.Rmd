@@ -35,7 +35,7 @@ library(here)
       \item[d.] Correct Model Specification
       \item[e.] Positivity
   \end{itemize}
-  \item Identifiability: Effect of Treatment on the Treated
+  \item Identifiability in other settings
     \begin{itemize}
       \item[a.] Exclusion restriction
       \item[b.] Instrumentation
@@ -166,6 +166,9 @@ confounder<-rbinom(n,1,.5)
 smoking<-rbinom(n,1,expit(-2+log(2)*confounder))
 CVD<-rbinom(n,1,.1+.05*smoking+.05*confounder)
 
+# the data
+head(data.frame(CVD,smoking,confounder))
+
 round(mean(confounder),3)
 round(mean(smoking),3)
 round(mean(CVD),3)
@@ -195,7 +198,7 @@ In our simple setting with 1 million observations, ordinary least squares and ma
 
 In our simulation example, we estimated the associational risk difference using three different estimators. Estimating associations is all we can do with empirical data. But we want to use the associational risk difference to quantify the causal risk difference. We can only do so if the causal risk difference is **identified**. _A parameter (e.g., causal risk difference) is identified if we can write it as a function of the observed data._
 
-The causal risk difference is defined as a contrast of potential outcomes. Referring back to our simulated example, we want to estimate the causal risk difference which is an example of an average treatment effect:
+The causal risk difference is defined as a contrast of potential outcomes. Referring back to our simulated example,^[To simplify the explanation here, I am ignoring the fact that we conditioned on (or adjusted for) confounders $C$. Of course, without adjusting for $C$, we get a confounded estimate. However, if we adjust for $C$, we no longer obtain the average treatment effect. Instead, we obtain the conditional treatment effect. The distinction between average and conditional treatment effects will be made clearer in the section on models.] we want to estimate the causal risk difference which is an example of an average treatment effect:
 $$ E( Y^{1} - Y^{0} ), $$
 where $Y^1$, $Y^0$ are the potential CVD outcomes that would be observed if smoking were set to 1 and 0, respectively. On the other hand, the associational risk difference is defined as a contrast of observed outcomes:
 $$ E( Y \mid X = 1) - E( Y\mid X = 0), $$
@@ -234,13 +237,55 @@ ________________________________________________________________________________
 
 The second is **positivity**,^[Also known as the experimental treatment assignment assumption.] and requires exposed and unexposed individuals within all confounding levels [@Mortimer2005,@Westreich2010a]. There are two kinds of positivity violations (non-positivity): structural (or deterministic) and stochastic^[The word **stochastic** is derived from the greek word "to aim," as in "to aim for a target."] (or random). Structural non-positivity occurs when individuals with certain covariate values cannot be exposed. For example, in occupational epidemiology work-status (employed/unemployed in workplace under study) is a confounder, but individuals who leave the workplace can no longer be exposed to a work-based exposure. Alternatively, stochastic non-positivity arises when the sample size is not large enough to populate all confounder strata with observations. When faced with positivity violations, methods must be used that are less affected by positivity violations.^[Warning: one cannot simply "avoid" positivity. In an extreme setting, nonpositivity means that those who were exposed in the sample are very unlikely to be exposed (and vice versa). In such a situation, it may not make sense to estimate the average treatment effect, because there is a subset of the population who may never realistically be exposed (or unexposed). In this case, g estimation, cTMLE, and the parametric g formula can actually estimate parameters that differ slightly from the ATE.] These include g estimation of a structural nested model, collaborative targeted minimum loss-based estimation, and the parametric g formula.
 
-\noindent {\Large \bf Identifiability: Effect of Treatment on the Treated}
+\noindent {\Large \bf Identifiability in Other Settings}
 
-Let's review what we've covered so far. We defined our causal effect of interest as the average treatment effect for a binary outcome / exposure, we we choose to be the causal risk difference:
+Let's review what we've covered so far. We defined our causal effect of interest as the average treatment effect for a binary outcome / exposure, specifically the causal risk difference:
 $$ E (Y^{x=1}  - Y^{x=0})  $$
 where $Y^x$ is the potential outcome that would be observed for a given individual if the exposure $X$ were set to some value $x$. However, using observed data, we can only quantify the associational risk difference:
 $$ E(Y \mid X=1) - E(Y \mid X=0) $$
 The causal risk difference is identifiable if we can re-write the associational risk difference as the causal risk difference, which we can do if we assume counterfactual consistency, no interference, exchangeability, positivity, and correct model specification. 
+
+However, these identifiability assumptions are specific to the average treatment effect. If we were interested in a different estimand, we may need (or could use) different assumptions. For example, in a randomized trial, we may want to estimate the effect of treatment on the treated. From the structure of an RCT, we end up with a data generating mechanism as depicted in Figure 3.
+
+```{r, out.width = "200px",fig.cap="Data generated from a randomized clinical trial, where $Z$ is an indicator of treatment assignment, $X$ is an indicator of whether treatment was taken, $Y$ is the outcome, and $C$ are covariantes predict compliance with the treatment and the outcome.",echo=F}
+knitr::include_graphics("F4.pdf")
+```
+In this Figure, $Z$ is an indicator of whether treatment was assigned, $X$ is an indicator of whether the participant complied with the assignment protocol, $C$ is a vector of confounders predicting compliance and the outcome, and $Y$ is the outcome of interest. In this case, the effect of treatment on the treated is defined as:
+
+$$ E(Y^{x=1} - Y^{x=0} \mid X = 1) $$
+
+It turns out that in this setting, we can use an instrumental variable based estimator to compute the ETT,^[The IV estimator for this setup is actually $$ \frac{E[E(Y \mid C, Z=1) - E(Y \mid C, Z=0)]}{E[E(X \mid C, Z=1) - E(X \mid C, Z=0)]}  $$] provided some key assumptions hold. 
+If we want to use an instrumental variable estimator to estimate the ETT, then in addition to counterfactual consistency, no interference, exchangeability, positivity, and correct model specification, we also need the exclusion restriction:
+$$ Y^{xz} = Y^x \text{ for all }x \in \{ 0, 1\} $$
+This assumption says that the treatment assignment indicator does not affect the outcome. We also need the "instrumentation" assumption:
+$$ E( X^{z=1} > X^{z=0} ) \geq \delta > 0 $$
+which says that the treatment assignment indicator will, on average, increase treatment use. Finally, we need the homogeneity assumption:
+$$ E( X^{z=1} \geq X^{z=0} ) = 1 $$
+which states that there are no "defiers" in the study, i.e., people who do the opposite of what they are assigned to do.
+
+\noindent {\Large \bf Non-Identifiability: Bounding Effects}
+
+What happens when the effect we want to estimate is not identifiable? Suppose, for example, exchangeability is violated becuase we could not randomize our exposure? Or perhaps there was some loss to follow-up that could not be accounted for with absolute certainty? More likely there is both unmeasured confounding and loss to follow-up. When this happens, we get a point estimate for the causal effect of interest, but it could either be smaller or larger in magnitude due to the influence of the unmeasured confounder and loss to follow-up. 
+
+In order to get a precise measure of **all the possible values the point estimate can take** as a result of unmeasured confounding and loss to follow-up, we can estimate bounds for the point estimate of interest. Confidence intervals are bounds on the point esimate of interest that capture the uncertainty that results from random variation [@Wasserman2004]. In contrast, identification bounds capture the uncertainty that results from potential violations of certain assumptions required for identification [@Manski2003].
+
+Consider a study (in progress) by Cole et al in which they sought to quantify the effect of injection drug use on time to AIDS or death in a cohort of 1164 adult HIV-positive, AIDS-free women. These women were followed for AIDS or death up to 10 years from 12/6/95 in the Women’s Interagency HIV Study [@Barkan1998]. Overall, 127 of 1164 women (11%) were lost to follow up. Adjusted risk differences were obtained via inverse probability weighting. Adjustment was made for age, race and nadir CD4 cell count.
+
+Figure 4 shows the results from the analysis. The top left panel shows the unadjusted risk difference over follow-up. The top right panel shows the corresponding risk difference after adjusting for loss to follow-up and measured confounders. The bottom left panel shows the identification bounds that result from loss to follow-up. And the bottom right panel shows the identification boudns that result from both loss to follow-up and unmeasured confounding. Specifically, the black area shows all possible risk differences that could arise given the data.
+
+```{r, out.width = "300px",echo=F}
+knitr::include_graphics("bounds.png")
+```
+
+The bottom right panel in Figure 4 tells us something critically important that we often fail to consider when conducting an empirical study. As Judea Pearl recently noted, "data are profoundly dumb" [@Pearl2018] and Figure 4 shows us why. Without assumptions, data alone often cannot point identify a causal effect of interest. Rather, when we interpret that a point estimate from a statistical model as a causal effect estimate, we are invoking a whole set of assumptions (knowingly or unknowingly) that allow us to get a single number out of our data, rather than a range of possible values.
+
+\noindent {\Large \bf Correlation versus Causation}^[Much of this section is based on work by Judea Pearl]
+
+In his *The Grammar of Science,* Karl @Pearson1911 wrote "[b]eyond such discarded fundamentals as 'matter' and 'force' lies still another fetish amidst the inscrutable arcana of modern science, namely, the category of cause and effect." He suggested that rather than pursue an understanding of cause-effect relations, scientists would be best served by measuring correlations through tables that classify individuals into specific categories. "Such a table is termed a contingency table, and the ultimate scientific statement of description of the relation between two things can always be thrown back upon such a contingency table."
+
+Over a century later, a majority of statistics courses treat causal inference by simply stating that "correlation is not causation." This treatment is hardly sufficient, for at least two reasons: 1) As scientists, our primary interst is (should be) in cause-effect relations; 2) People continue to conflate correlation with causation^[Daniel Westreich and I reviewed a book in which the allure of "Big Data" was so strong, the authors quickly forgot that correlation $\neq$ causation. See @Naimi2014d]. For both of these reasons, we very much need to indentify the conditions that would allow us to understand causality better. This is what "causal inference" is all about.
+
+In this course, I adopt the view that **the causal and statistical aspects of a scientific study should be kept as separate as possible.** The objective is to first articulate the conditions under which causal inference is possible, and then to understand what statistical tools will enable us to answer the causal question.^[ Loosely speaking: Causal inference is the "what?" Statistics is the "how?" Epidemiology is the "why?"] Causal inference tells us what we should estimate, and whether we can. Statistics tells us how to estimate it. By implication, we should avoid treating statistical models as if they were causal. Furthermore, to the best of our ability, we should avoid imposing unnecessary parametric assumptions on the causal models that we believe are generating the data. I will try to clarify what I intend by this in the next section on models.
 
 \newpage
 
