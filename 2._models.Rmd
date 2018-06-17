@@ -56,7 +56,7 @@ Typically, the use of a logistic regression model proceeds as follows:^[This is 
 The logistic model is often formulated as follows $$ \logit[P( Y = 1 \mid X, C)] = \beta_0 + \beta_1 X + \beta_2 C $$
 where $\logit[a] = \log[a/(1-a)]$. 
 
-More practically, suppose we were intersted in the relation between smoking and high blood pressure. We can examine this relation using data from the NHANES 1 Epidemiologic Follow-Up Study.^[These data are available on the website for the forthcoming book, Causal Inference, by Hernán and Robins. See: https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/]
+More practically, suppose we were intersted in the relation between quitting smoking and weight gain. We can examine this relation using data from the NHANES 1 Epidemiologic Follow-Up Study.^[These data are available on the website for the forthcoming book, Causal Inference, by Hernán and Robins. See: https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/]
 
 ```{r, message=F}
 aa <- read_csv("./nhefs.csv")
@@ -66,7 +66,8 @@ nrow(aa)
 
 We'll restrict our attention to a small subset of covariates:
 ```{r}
-a <- aa %>% select(seqn,qsmk,sbp,dbp,hbp,sex,age,race,income,marital,school,asthma,bronch,diabetes,birthcontrol)
+a <- aa %>% select(seqn,qsmk,smkintensity82_71,smokeintensity,active,exercise,wt82_71,sbp,dbp,hbp,hf,ht,hbpmed,sex,age,hf,race,income,marital,school,asthma,bronch,diabetes)
+a$hbp_71 <- a$hbp
 ```
 
 Missing data is always important to address. We use the `aggr` function from the VIM package to create this great plot, showing how much missing data there is, and how it's distributed in the dataset.
@@ -78,30 +79,37 @@ a <- a %>% na.omit()
 # sample size remaining after restricting to complete case
 nrow(a)
 ```
-Let's examine the distrbution of systolic and diastolic blood pressure.
+Let's examine the change in weight between 1971 and 1982.
 ```{r}
-plot<-ggplot(a,aes(sbp,dbp)) + geom_point() + geom_smooth(method="loess")
+ggplot(a,aes(wt82_71)) + geom_density(bw=5)
+quantile(a$wt82_71,probs = seq(0, 1, 0.2))
+```
+
+And the distrbution of weight change and smoking intensity change.
+```{r}
+plot<-ggplot(a,aes(wt82_71,smkintensity82_71)) + geom_point() + geom_smooth(method="loess")
 ggMarginal(plot, type = "histogram")
 ```
 
-And finally, a $2\times 2$ table for the relation between smoking and high-blood pressure.
+And finally, a $2\times 2$ table for the relation between increased smoking and high-blood pressure.
 ```{r}
-a$hbp <- as.numeric(a$sbp>130&a$dbp>80)
-
-tab1<-table(a$qsmk,a$hbp)
+a$delta <- as.numeric(a$wt82_71>0)
+tab1<-table(a$qsmk,a$delta)
 addmargins(tab1)
 chisq.test(tab1)
 ```
 
-Traditionally, the approach to quantifying the relation between smoking and high blood pressure is to identify a set of confounders. Let's assume for our purpose that the relevant confounders are: `sex, age, race, income, marital, school,` and `birthcontrol`. The most common approach to estimating the effect of smoking on high blood pressure is to fit a logistic model, adjusting for these confounders:
+Traditionally, the approach to quantifying the relation between quitting smoking and gaining weight is to identify a set of confounders. Let's assume for our purpose that the relevant confounders are as listed in the model below. The most common approach to estimating the effect is to fit a logistic model, adjusting for these confounders:
 
 ```{r}
-model1 <- glm(hbp~qsmk+sex+age+race+income+marital+school+birthcontrol+diabetes,data=a,family=binomial(link="logit"))
+model1 <- glm(delta~qsmk+sex+age+race+income+
+                marital+school+active+hf+smokeintensity+
+                exercise+diabetes+hbp_71,data=a,family=binomial(link="logit"))
 summary(model1)
 ```
-The output from this model tells us that the odds of HBP among smokers is `r round(exp(summary(model1)$coefficients[2,1]),2)` times the odds of HBP among non-smokers (with 95% CIs of `r round(exp(summary(model1)$coefficients[2,1] - 1.96*summary(model1)$coefficients[2,2] ),2)`, `r round(exp(summary(model1)$coefficients[2,1] + 1.96*summary(model1)$coefficients[2,2] ),2)`).
+The output from this model tells us that the odds of weight gain among those who quit smoking is `r round(exp(summary(model1)$coefficients[2,1]),2)` times the odds of weight gain among those who did not quit (with 95% CIs of `r round(exp(summary(model1)$coefficients[2,1] - 1.96*summary(model1)$coefficients[2,2] ),2)`, `r round(exp(summary(model1)$coefficients[2,1] + 1.96*summary(model1)$coefficients[2,2] ),2)`).
 
-It might be tempting to conclude that this is the effect of smoking on high blood pressure. One might be further tempted to interpret this effect as a comparison of the odds of high blood pressure if everyone smoked versus if no one smoked. Unfortunately, there are a number of considerations related to the types of models we are using that jeapordize the validity of such an interpretation.
+It might be tempting to conclude that this is the effect of quitting smoking on weight gain. One might be further tempted to interpret this effect as a comparison of odds if everyone quit versus if no one quit. Unfortunately, there are a number of considerations related to the types of models we are using that jeapordize the validity of such an interpretation.
 
 \noindent {\Large \bf Causal versus Statistical}
 
@@ -114,12 +122,12 @@ Any statistical association between an exposure and outcome of interest can be c
 \item Chance
 \end{itemize}
 
-These relations are codified in the causal model, but not the staitstical model. For example, depending on how/when it was measured, we might draw a directed acyclic graph in which diabetes is a common cause of both smoking (becuase diabetics will refrain from smoking) and high blood pressure, or in which diabetes mediates (smoking causes diabetes) the relation between smoking and high blood pressure.  
+These relations are codified in the causal model, but not the staitstical model. For example, depending on how/when it was measured, we might draw a directed acyclic graph in which diabetes is a common cause of both quitting smoking (becuase diabetics will refrain from smoking) and weight gain, or in which diabetes mediates (quitting smoking changes diabetes risk) the relation between smoking and high blood pressure.  
 ```{r, out.width = "200px",fig.cap="Two scenarios depicting the relation between smoking ($X$), diabetes, and high blood pressure ($Y$).",echo=F}
 knitr::include_graphics("F5.pdf")
 ```
 
-The critical point is that if the interest if the total effect of smoking on the outcome is of interest, and if diabetes is in fact a mediator of this relation, then it should **not** be adjusted for.^[Note that at times, clinicians/researchers are primarily interested in the effect of smoking independent of it's effect on diabetes. In this case, methods for mediation analysis are required.] Otherwise, a key part of the effect will be blocked. Alternatively, if diabetes is confounding the relation between smoking and high blood pressure, then it must be adjusted for to reduce confounding bias.
+The critical point is that if the interest if the total effect of quitting smoking on the outcome is of interest, and if diabetes is in fact a mediator of this relation, then it should **not** be adjusted for.^[Note that at times, clinicians/researchers are primarily interested in the effect of smoking independent of it's effect on diabetes. In this case, methods for mediation analysis are required.] Otherwise, a key part of the effect will be blocked. Alternatively, if diabetes is confounding the relation between quitting smoking and weight gain, then it must be adjusted for to reduce confounding bias.
 
 Technically, the two DAGs are Markov (or observationally) equivalent, or are in the same **equivalence class** [@Pearl2009a]. Two or more DAGs are said to be Markov equivalent if and only if they have the same skeletons (i.e., the same nodes) and the same set of colliders [@Verma1990]. In non-technical terms, a set of DAGs that are Markov equivalent means that no statistical analysis can be used to distinguish between them. 
 
@@ -145,21 +153,21 @@ There are ways to avoid assuming the outcome follows a logistic model conditiona
 
 \noindent {\Large \bf Marginal versus Conditional}
 
-A third complication with interpreting the estimate for smoking as "what would be observed if everyone smoked versus if no one smoked" is the distinction between marginal and conditional models. This distinction becomes more complicated when interest lies in estimating non-collapsible parameters (i.e., non-linear model) such as the odds ratio or the hazard ratio [@Greenland2005b].
+A third complication with interpreting the estimate for quitting smoking as "what would be observed if everyone quit versus if no one quit" is the distinction between marginal and conditional models. This distinction becomes more complicated when interest lies in estimating non-collapsible parameters (i.e., non-linear model) such as the odds ratio or the hazard ratio [@Greenland2005b].
 
 Briefly, a conditional effect estimate can be obtained by fitting a conditional model such as:
 $$ g[E(Y \mid X, C )] = \beta_0 + \beta_1 X + \beta_2 C  $$
 
 A marginal model can be obtained by fitting a marginal model using inverse probability weighting (which we will see in the next section), or by marginalizing a conditional model (which we will see in the g computation section).
 
-For a linear model, the marginal and conditional effect estimate will be equivalent, unless there is an interaction between the exposure and a covariate (in which case they may, but need not be, equivalent). For example, if we consider the relation between smoking and high blood pressure after adjusting for sex, we can obtain a conditional and marginal risk difference as follows:
+For a linear model, the marginal and conditional effect estimate will be equivalent, unless there is an interaction between the exposure and a covariate (in which case they may, but need not be, equivalent). For example, if we consider the relation between quitting smoking and weight gain after adjusting for sex, we can obtain a conditional and marginal risk difference as follows:
 ```{r}
 
-linear_model <- glm(hbp ~ qsmk + sex, data=a, family=gaussian("identity"))
+linear_model <- glm(delta ~ qsmk + sex, data=a, family=gaussian("identity"))
 round(coef(linear_model)[2]*100,2)
 
 ```
-Thus the conditional risk difference is `r round(coef(linear_model)[2]*100,2)` excess cases of high blood pressure among smokers versus nonsmokers per 100 participants. We can marginalize over the distribution of sex in the sample as:
+Thus the conditional risk difference is `r round(coef(linear_model)[2]*100,2)` excess cases of weight gain among quitters versus nonquitters per 100 participants. We can marginalize over the distribution of sex in the sample as:
 
 ```{r}
 
@@ -174,12 +182,12 @@ risk1 <- predict(linear_model, newdata = aa1)
 round(mean(risk1 - risk0)*100,2)
 
 ```
-Thus the marginal risk difference is `r round(mean(risk1 - risk0)*100,2)` excess cases of high blood pressure among smokers versus nonsmokers per 100 participants, the same as the conditional risk difference.
+Thus the marginal risk difference is `r round(mean(risk1 - risk0)*100,2)` excess cases of weight gain among quitters versus nonquitters per 100 participants, the same as the conditional risk difference.
 
-If we interact smoking and sex, the conditional and marginal are no longer equivalent because there are two effects for the conditional model (one for each smoking level), but only one for the marginal. 
+If we interact quitting smoking and sex, the conditional and marginal are no longer equivalent because there are two effects for the conditional model (one for each quit smoking level), but only one for the marginal. 
 ```{r}
 
-linear_model2 <- glm(hbp ~ qsmk + sex + qsmk:sex, data=a, family=gaussian("identity"))
+linear_model2 <- glm(delta ~ qsmk + sex + qsmk:sex, data=a, family=gaussian("identity"))
 # effect among sex = 0
 round(coef(linear_model2)[2]*100,2)
 # effect among sex = 1
@@ -205,7 +213,7 @@ round(mean(risk1 - risk0)*100,2)
 This becomes more complicated if the estimand of interest is noncollapsible. For example, if we are interested in the odds ratio, the conditionally adjusted odds ratio is:
 ```{r}
 
-logit_model <- glm(hbp ~ qsmk + sex, data=a, family=binomial("logit"))
+logit_model <- glm(delta ~ qsmk + sex, data=a, family=binomial("logit"))
 round(exp(coef(logit_model)[2]),2)
 
 ```
