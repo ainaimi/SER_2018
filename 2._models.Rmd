@@ -70,7 +70,7 @@ a <- aa %>% select(seqn,qsmk,smkintensity82_71,smokeintensity,active,exercise,wt
 a$hbp_71 <- a$hbp
 ```
 
-Missing data is always important to address. We use the `aggr` function from the VIM package to create this great plot, showing how much missing data there is, and how it's distributed in the dataset.
+Missing data is always important to address. We use the `aggr` function from the VIM package to create this great plot, showing how much missing data there is, and how it's distributed in the dataset. Note that some of the missing data in the dataset is coded numerically (e.g., if `exercise=2`, then the value was missing). We will ignore these missing data.
 
 To simplify, we'll restrict to complete cases. Note this is not something that should be done without careful consideration of missing data assumptions.^[For complete case analyses to be valid, data must be MCAR, or missing completely at random. For details, see @Little2014.]
 ```{r}

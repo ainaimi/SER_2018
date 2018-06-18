@@ -38,7 +38,7 @@ options(width = 90)
 \begin{itemize}
   \item Some Preliminaries
   \item Model Based Standardization
-  \item The Effect of Smoking on Blood Pressure
+  \item The Effect of Smoking on Weight Change
   \item Time-Varying Confounding
 \end{itemize}
 
@@ -203,15 +203,183 @@ table(D$A,D$C)
 Becuase there are no empty cells in this table, we can assume positivity is met. Additionally, becuase we are willing to make all these identifiability assumptions, we infer that the causal effect of $A$ on $Y$ is `r round(mY_1-mY_0,1)`.
 
 
-\noindent {\Large \bf Example 2: Effect of Smoking on HBP (NEHFS)}
+\noindent {\Large \bf Example 2: Effect of Quitting Smoking on Weight Gain (NEHFS)}
+
+Let's apply the same reasoning to a real dataset. We'll load the same NEHFS data we used in the section on models:
+
+```{r, message=F}
+aa <- read_csv("./nhefs.csv")
+# original sample size
+nrow(aa)
+
+a <- aa %>% select(seqn,qsmk,smkintensity82_71,smokeintensity,active,exercise,wt82_71,sbp,dbp,hbp,hf,ht,hbpmed,sex,age,hf,race,income,marital,school,asthma,bronch,diabetes)
+a$hbp_71 <- a$hbp
+
+a <- a %>% na.omit()
+
+a$delta <- as.numeric(a$wt82_71>0)
+```
+
+Let's again assume that the relevant confounders are: `sex, age, race, income, marital, school, active, hf, hbpmed, asthma, bronch, smokeintensity, exercise, diabetes,` and `hbp_71`.
+
+```{r}
+a <- a %>% select(delta, qsmk, sex, age, race, income, marital, school, active, hf, hbpmed, asthma, bronch, smokeintensity, exercise, diabetes,hbp_71)
+```
 
 
+One important question to address is how adjust for continuous variables, or categorical variables with many levels. For example,  
+```{r}
+# age distribution
+ggplot(a,aes(x=age)) + geom_histogram()
+# income levels
+table(a$income)
+```
+In typical settings, continuous variables would be fitted using polynomial or spline functions, while multi-level categorical variables would be further categorized by judicious selection of thresholds. In this course, we will forego these complications, and categorize each variable rather hastily (recall, we are ignoring the numerically coded missing data).
+
+```{r}
+a$smokeintensity <- as.numeric(a$smokeintensity>median(a$smokeintensity))
+a$age <- as.numeric(a$age>median(a$age))
+a$exercise <- as.numeric(a$exercise>0)
+a$income <- as.numeric(a$income>median(a$income))
+a$marital <- as.numeric(a$marital>median(a$marital))
+a$school <- as.numeric(a$school>median(a$school))
+a$active <- as.numeric(a$active>0)
+a$hbpmed <- as.numeric(a$hbpmed>0)
+a$smokeintensity <- as.numeric(a$smokeintensity>median(a$smokeintensity))
+a$exercise <- as.numeric(a$exercise>0)
+a$diabetes <- as.numeric(a$diabetes>0)
+a$hbp_71 <- as.numeric(a$hbp_71>0)
+```
+
+\noindent {\bf Setup}
+
+We first start with the **setup**: define the estimand, order the variables causally, write down the models, "tie" them together into the g formula. Again, in this simple setting, our estimand of interest is the marginal average causal effect on the difference scale:
+$$ E(Y^{a=1} - Y^{a=0})$$
+And again, this estimand tells us we need to quantify the same two outcome averages. 
+
+Even in this complex setting, the ordering of the variables is relatively straightforward. This is becuase we actually don't have to order any of the baseline confounders, which consists of all confounders. The causal ordering of our variables is therefore baseline confounders, quitting smoking, and weight change.
+
+Instead of writing down a model for each baseline confounder, we can model their joint distribution empirically. What this means is we just have to model the exposure^[In principle, we only have to model the exposure to generate the natural course, not to estimate the effect of interest. However, because the natural course is a critical verification step, it should be done every time.] So the only models we need are:
+\begin{table}
+\begin{tabular}{rl}
+Variable & Model \\
+$Y$ & $E(Y \mid A, C) = \alpha_0 + \alpha_1 A + \alpha_2 \mathbf{C}$ \\
+$A$ & $P(A=1 \mid C) = \expit(\beta_0 + \beta_1 C)$ \\
+\end{tabular}
+\end{table}
+
+ Still, we must not break the **cardinal rule: do not adjust for the future.**
+
+Finally, we again tie each of these models together to give us a pre-cursor to the g formula:
+$$ E(Y) = \sum_A \sum_C E(Y \mid A, C)P(A\mid C) P(C)$$
+Again, to obtain the g formula from this expression, we replace all instances of $A$ with $A=a$ and remove $P(A \mid C)$
+$$ E(Y^a) = \sum_C E(Y \mid A=a, C) P(C)$$
+which holds under our identifiability assumptions.
+
+We can fit these models fairly easily:
+```{r}
+
+model_A <- glm(qsmk ~ sex+age+race+income+marital+school+active+hf+hbpmed+asthma+bronch+
+                 smokeintensity+exercise+diabetes+hbp_71,data=a,family=binomial("logit"))
+summary(model_A)
+
+model_Y <- glm(delta ~ qsmk+sex+age+race+income+marital+school+active+hf+hbpmed+asthma+bronch+
+                 smokeintensity+exercise+diabetes+hbp_71,data=a,family=binomial("logit"))
+summary(model_Y)
+
+```
+
+
+\noindent {\bf Implementation and Validation}
+
+We're now ready for **implementation**, but things are a little different with so many confounders and realistic sample sizes. First, to empirically model the joint distribution of all confounders, we simply need to resample them with replacement. The size of the resample will depend on the complexity of the confounder space. There are two competeing issues here: 1) Becuase we only have binary confounders, we can reduce the Monte Carlo^[The Monte Carlo method is an approach to solving things using simulation. In this case, we are solving the g formula by randomly resampling the baseline data, and simulating from the models we fit above.] sample size. However, because we have many of them, we should choose a sufficiently large Monte Carlo sample size. 
+
+```{r}
+
+# resample data
+index <- sample(1:nrow(a),size=1e4,replace=T)
+length(index)
+MC <- a[index,]
+nrow(MC)
+MC$qsmk<-NULL
+# predict exposure
+pA <- predict(model_A,newdata=MC,type="response")
+```
+
+The variable `pA` is the predicted exposure. Let's **validate** our model by comparing this predicted exposure matches the actual exposure: `r mean(pA)` versus `r mean(a$qsmk)`.
+
+The new predicted variable for quitting smoking, `pA` is not a binary indicator, but rather takes on values *between* 0 and 1. To convert it to a binary exposure variable, we can compare each value to a uniform random value:
+
+```{r}
+
+u <- runif(1e4)
+qA <- as.numeric(pA>u)
+head(qA)
+
+mean(qA)
+mean(a$qsmk)
+
+```
+Now that we have our new simulated exposure `qA`, we can simulate and **validate** the outcome:
+
+```{r}
+
+pY <- predict(model_Y,newdata=data.frame(MC,qsmk=qA),type="response")
+
+mean(pY)
+mean(a$delta)
+
+```
+We can now estimate the effect of smoking on weight gain:
+
+```{r}
+pY_1 <- predict(model_Y,newdata=data.frame(MC,qsmk=1),type="response")
+mY_1<-mean(pY_1)
+
+pY_0 <- predict(model_Y,newdata=data.frame(MC,qsmk=0),type="response")
+mY_0<-mean(pY_0)
+
+RD <- round((mY_1 - mY_0)*100,2)
+RD
+RR <- round(mY_1 / mY_0,2)
+RR
+```
+
+\noindent This analysis yielded a risk difference of `r RD` per 100 participants and a risk ratio of `r RR` for the relation between quitting smoking and gaining weight. We'll now **interpret** this effect. 
+
+______________________________________________________________________________________________
+\begin{quotation}
+\noindent \textsc{Side Note:} In this empirical analysis, we chose a binary indicator of whether any weight was gained between the two study visits. We could just as easily have modeled weight change on the continuous scale, as in the other two examples.
+\end{quotation}
+
+______________________________________________________________________________________________
+
+
+\noindent {\bf Interpretation}
+
+Can we interpret this difference as the causal effect of quitting smoking on weight? Let's refer back to the set of identifiability assumptions. For counterfactual consistency 1) how many different ways are there to get someone to quit smoking?; and 2) will these different assignment mechanisms lead to different outcomes? There is a relatively narrow set of ways to get someone to quit smoking, and (to my knowledge) they are unlikely to lead to drastically different weight changes.^[Though I am not a subject matter expert here, so feel free to point out if you disagree.]
+
+For interference, we must ask if a given person quit smoking, will it affect the outcome of another person? This is absolutely possible, given the effects of second hand smoke and the motivational component of quitting smoking with someone. In this case, there are two things we can possibly do: 1) we can assume that in these data, no two participants are "close enough" in space or a network of social connections that this will matter; 2) we can change our estimand from the average treatment effect to one that accounts for interference [@Hudgens2008]. This latter route is much more complicated to implement, and not possible with these data because we'd have to know how closely each participant in the study is connected with others. 
+
+Correct model specification is another issue to consider. To simplify the illustration, we dichotomized all of the confounding variables. This has a direct bearing on correct model specification. We also ignored any interactions between quitting smoking and any confounders in the outcome model. This is often a key challenge when using real data from an observational study. 
+
+Finally, for positivity, we must ask whether there are exposed and unexposed individuals in each confounder level. Becuase of the number of confounding variables, we cannot simply use a $2 \times 2$ table. Instead we should examine propensity score overlap:
+```{r}
+
+prop <- model_A$fitted.values
+propD <- data.frame(A=as.factor(a$qsmk),pA=prop)
+
+ggplot(propD, aes(x=pA,color=A)) + 
+  geom_density() + ggtitle("Propensity Score Overlap")
+
+```
+This plot looks good, since there is reasonable overlap between the two groups.
 
 \noindent {\Large \bf Example 3: ART effect on CD4 Count (Simulated)}
 
-In the previous example, we dealt with data that was neither longitudinal nor complex. We did not need to analyze these data using the g formula. In fact, a simple standard regression would have given us the same result. Here, we extend our previous example by adding an additional exposure, and converting our time-fixed confounder $C$ to a time-dependent confounder $Z$. Our research question again deals with the effect of treatment for HIV on CD4 count.^[This example was taken from @Naimi2016c] The causal diagram representing this scenario is depicted in Figure 4.
+In the previous examples, we dealt with data that was neither longitudinal nor complex. We did not need to analyze these data using the g formula. In fact, a simple standard regression would have given us the same result. Here, we extend our previous example by adding an additional exposure, and converting our time-fixed confounder $C$ to a time-dependent confounder $Z$. Our research question again deals with the effect of treatment for HIV on CD4 count.^[This example was taken from @Naimi2016c] The causal diagram representing this scenario is depicted in Figure 4.
 ```{r, out.width = "200px",fig.cap="Causal diagram representing the relation between anti-retroviral treatment at time 0 ($A_0$), HIV viral load just prior to the second round of treatment ($Z_1$), anti-retroviral treatment status at time 1 ($A_1$), the CD4 count measured at the end of follow-up ($Y$), and an unmeasured common cause ($U$) of HIV viral load and CD4.",echo=F}
-knitr::include_graphics("F4.pdf")
+knitr::include_graphics("F4a.pdf")
 ```
 
 ______________________________________________________________________________________________
