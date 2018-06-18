@@ -388,7 +388,7 @@ for(i in 1:100){
                  smokeintensity+exercise+diabetes+hbp_71,data=boot_dat,family=binomial("logit"))
 
   index <- sample(1:nrow(a),size=1e4,replace=T)
-  MC <- a[index,]
+  MC <- boot_dat[index,]
   MC$qsmk<-NULL
   
   mY_1 <- mean(predict(model_Y,newdata=data.frame(MC,qsmk=1),type="response"))
