@@ -375,6 +375,45 @@ ggplot(propD, aes(x=pA,color=A)) +
 ```
 This plot looks good, since there is reasonable overlap between the two groups.
 
+\noindent {\bf Confidence Intervals}
+
+To get confidence intervals for our risk difference and risk ratio, the only option is to use the bootstrap. To do this, we have to resample (with replacement) the original data, re-fit the model for the outcome, and obtain a contrast from this resample. If we do this 100 times, we can use the standard deviation of these 100 point estimates as the standard error of the estimator, and obtain the usual Wald confidence limits:
+
+```{r}
+res <- NULL
+for(i in 1:100){
+  index <- sample(1:nrow(a),nrow(a),replace=T)
+  boot_dat <- a[index,]
+  model_Y <- glm(delta ~ qsmk+sex+age+race+income+marital+school+active+hf+hbpmed+asthma+bronch+
+                 smokeintensity+exercise+diabetes+hbp_71,data=boot_dat,family=binomial("logit"))
+
+  index <- sample(1:nrow(a),size=1e4,replace=T)
+  MC <- a[index,]
+  MC$qsmk<-NULL
+  
+  mY_1 <- mean(predict(model_Y,newdata=data.frame(MC,qsmk=1),type="response"))
+  mY_0 <- mean(predict(model_Y,newdata=data.frame(MC,qsmk=0),type="response"))
+  
+  RD <- (mY_1 - mY_0)*100
+  logRR <- log(mY_1 / mY_0)
+  
+  res <- rbind(res,cbind(RD,logRR))
+}
+
+head(res)
+
+res_sd <- apply(res,2,sd)
+
+lclRD <- RD - 1.96*res_sd[1]
+uclRD <- RD + 1.96*res_sd[1]
+
+lclRR <- exp(log(RR) - 1.96*res_sd[2])
+uclRR <- exp(log(RR) + 1.96*res_sd[2])
+
+
+```
+\noindent This bootstrap estimator yields 95% CIs of `r round(lclRD,2)`, `r round(uclRD,2)` for the risk difference, and `r round(lclRR,2)`, `r round(uclRR,2)` for the risk ratio.
+
 \noindent {\Large \bf Example 3: ART effect on CD4 Count (Simulated)}
 
 In the previous examples, we dealt with data that was neither longitudinal nor complex. We did not need to analyze these data using the g formula. In fact, a simple standard regression would have given us the same result. Here, we extend our previous example by adding an additional exposure, and converting our time-fixed confounder $C$ to a time-dependent confounder $Z$. Our research question again deals with the effect of treatment for HIV on CD4 count.^[This example was taken from @Naimi2016c] The causal diagram representing this scenario is depicted in Figure 4.
