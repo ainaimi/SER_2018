@@ -485,12 +485,13 @@ Let's now **implement** the g formula in our software programs. We will again st
 # arrange into wide data
 a0<-c(0,0,0,0,1,1,1,1);z1<-c(0,0,1,1,0,0,1,1);a1<-c(0,1,0,1,0,1,0,1)
 y<-c(87.29,112.11,119.65,144.84,105.28,130.18,137.72,162.83)
-N<-c(209271,93779,60654,136293,134781,60789,93903,210527)
+N<-c(209271,93779,60654,136293,134781,60789,93903,210530)
 D<-NULL
 for(i in 1:8){
   d<-data.frame(cbind(rep(a0[i],N[i]),rep(z1[i],N[i]),rep(a1[i],N[i]),rep(y[i],N[i])))
   D<-rbind(D,d)
 }
+nrow(D)
 names(D)<-c("a0","z1","a1","y")
 # take the mean of Y
 mean(D$y)
