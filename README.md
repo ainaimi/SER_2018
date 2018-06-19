@@ -3,8 +3,6 @@
 An Introduction to G Methods
 ============================
 
-**Please note, this repository is currently being updated. Materials will be added over the next few weeks**
-
 This repository contains the materials for the short course offered at the Society for Epidemiologic Research's Annual Meeting in Baltimore, June 2018. There are two ways to download the course materials. If you are familiar with git/GitHub, simply run the following on the command line:
 
     git clone https://github.com/ainaimi/SER_2018.git
