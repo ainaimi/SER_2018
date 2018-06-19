@@ -34,11 +34,10 @@ options(width = 90)
 \newpage
 \noindent {\Large \bf Outline}
 \vskip .25cm
-\noindent \underline{G Computation}
+\noindent \underline{Inverse Probability Weighting}
 \begin{itemize}
   \item Some Preliminaries
-  \item Model Based Standardization
-  \item The Effect of Smoking on Weight Change
+  \item Standardization via IPW
   \item Time-Varying Confounding
 \end{itemize}
 
