@@ -48,6 +48,11 @@ Structural nested models map a \emph{conditional contrast} of potential outcomes
 \end{align*}
 Note this model introduces two additional parameters than the marginal structural model: $\psi_3$ for the two-way interaction between $a_1$ and $z_1$, and $\psi_4$ for the three-way interaction between $a_1$, $z_1$, and $a_0$. Indeed, the ability to explicitly quantify interactions between time-varying exposures and time-varying covariates (which cannot be modeled via standard marginal structural models) is a major strength of structural nested models when effect modification is of interest [@Robins2009]. To simplify our exposition, we set $(\psi_3,\psi_4)=(0,0)$ in our data example, allowing us to drop the $\psi_3z_1$ and $\psi_4a_0z_1$ terms from the model. In effect, this renders our structural nested mean model equivalent to a semi-parametric marginal structural model. (In the Supplementary Material of @Naimi2016b, we explain how marginal structural and structural nested models each relate to time-varying interactions in more detail.)
 
+Intuitively, the structural nested model yields a comparison of counterfactual outcomes as depicted in the following Figure:
+```{r, out.width = "300px",fig.cap="Diagram depicting the causal contrast defining our effect of interest in a given structural nested model.",echo=F}
+knitr::include_graphics("F6.pdf")
+```
+
 We can now use g-estimation to estimate $(\psi_{0},\psi_{1},\psi_{2})$ in the above structural nested model. G-estimation is based on solving equations that directly result from conditional exchangeability (applied sequentially), combined with assumptions implied by the structural nested model. If, at each time point, the exposure is conditionally independent of the potential outcomes (sequential exchangeability) then the conditional covariance between the exposure and potential outcomes is zero [@Vansteelandt2015] Formally, these conditional independence relations can be written as:
 \begin{align*}
 0 &= \text{Cov}( Y^{a_0,0} ,  A_1 \mid Z_1, A_0) \\
